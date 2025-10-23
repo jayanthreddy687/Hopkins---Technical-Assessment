@@ -1,0 +1,132 @@
+VDR Lite + LLM — 5-Hour Task
+What to build
+Upload a .zip of 10–20 docs. Extract text. Call an LLM to return per-doc Facts and Red Flags in strict JSON. Aggregate counts, render a clean UI, and export Markdown.
+Minimal flow
+Upload + unzip (≤25 MB).
+
+
+Extract text
+
+
+PDF → basic text
+
+
+DOCX → paragraphs
+
+
+XLSX/CSV → first sheet, first 200 rows flattened
+
+
+TXT → as-is
+ Truncate each doc to 15k chars.
+
+
+Category: filename + first 300 chars with a tiny keyword map (financial, legal, commercial, operations, other).
+
+
+LLM per doc: one call per doc. Temperature 0. Use a JSON schema to force structure.
+
+
+Aggregate: counts by category.
+
+
+LLM final narrative: one call that takes the merged JSON and returns a 300–400-word IC-style red-flag summary.
+
+
+UI: summary cards + expandable table.
+
+
+Export: vdr_summary.md.
+
+
+LLM prompts (copy-paste)
+Per-document extraction
+System:
+ “You are a private-equity diligence analyst. Be concise, literal, and conservative. If unsure, say ‘Unknown’. Output valid JSON only that matches the schema.”
+User (template):
+Return JSON for this document.
+
+Document meta:
+- filename: {{filename}}
+- category: {{category}}
+
+JSON schema:
+{
+  "doc": "string",           // filename
+  "category": "financial|legal|commercial|operations|other",
+  "facts": ["string", ...],  // 1-5 bullets, short, objective
+  "red_flags": ["string", ...] // 0-5 bullets, short, concrete risk statements
+}
+
+Heuristics:
+- Prefer explicit numbers, terms, durations, thresholds, parties, and dates.
+- Red flags include: missing statements, exclusivity, unilateral termination, indemnities, breaches, going concern, overdue/arrears, covenants, related parties, churn, key-customer risk, safety/compliance issues, expired docs.
+
+Document text (truncated):
+{{text}}
+
+Final narrative
+System:
+ “You summarize for an Investment Committee. Group by category. Be concise and professional. 300–400 words.”
+User:
+Input is a JSON array of per-document results:
+{{json_array}}
+
+Write a single 300–400 word summary focusing on red flags first. Group by Financial, Legal, Operations, Commercial. Where helpful, reference counts (e.g., “3 red flags across two contracts”).
+
+API usage
+Use your preferred LLM API. Keep temperature=0, max_tokens ~700 for doc calls, ~500 for the final narrative.
+
+
+Cost control: truncate doc text to 15k chars, and limit to 1 call per doc + 1 final call.
+
+
+Interfaces
+POST /api/analyse → returns:
+
+
+{
+  "docs": [{ "doc": "...", "category": "...", "facts": [...], "red_flags": [...] }],
+  "aggregate": { "financial": {"facts": X, "red_flags": Y}, "legal": {...}, "operations": {...}, "commercial": {...}, "other": {...} },
+  "summaryText": "300–400 word narrative",
+  "errors": ["unreadable file names..."]
+}
+
+POST /api/export → returns vdr_summary.md.
+
+
+UI (single page)
+Upload box with progress: “Analysing N of N…”.
+
+
+Four summary cards with counts.
+
+
+Expandable table: Document | Category | Key Facts | Red Flags.
+
+
+“Download Markdown” button.
+
+
+Definition of done
+Zip → progress → results in ≤2–3 minutes for 10–20 small docs.
+
+
+Per-doc JSON from LLM, strict parsed. On JSON parse error, show the doc under “Needs review” but continue.
+
+
+Summary cards + table render.
+
+
+Markdown export works.
+
+
+
+
+
+Starter JSON guard (server-side)
+After LLM response, parse JSON with a strict validator.
+
+
+If invalid, retry once with: “Your last output was invalid JSON. Return only valid JSON matching the schema, no prose.”
+
