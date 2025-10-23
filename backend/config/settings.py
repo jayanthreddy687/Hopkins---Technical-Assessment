@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-2.5-flash-lite"
     llm_temperature: float = 0.0
     llm_max_tokens: int = 700
+    llm_summary_max_tokens: int = 500  # As per instructions: ~500 for final narrative
     llm_retry_attempts: int = 2
     
     # Document Processing Configuration

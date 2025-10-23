@@ -200,10 +200,16 @@ class LLMService:
                 analysis_json=analyses_json
             )
             
+            # Use separate config for summary generation (500 tokens as per instructions)
+            summary_config = genai.types.GenerationConfig(
+                temperature=settings.llm_temperature,
+                max_output_tokens=settings.llm_summary_max_tokens,
+            )
+            
             # Call LLM
             response = self.model.generate_content(
                 prompt,
-                generation_config=self.generation_config
+                generation_config=summary_config
             )
             
             summary = response.text.strip()
